@@ -59,6 +59,18 @@ Compute quantitative stats:
 
 Auto-generate the weekly review at `Daily/{YYYY}-W{WW}.md`.
 
+### Step 5.1: Trend Comparison
+
+Before generating the report, check for the previous week's review:
+- Look for `Daily/{YYYY}-W{WW-1}.md` (or previous year's last week if W01)
+- If found, extract key metrics for comparison:
+  - Previous week's task completion count
+  - Previous week's daily note count
+  - Previous week's carried forward items
+  - Previous week's key themes/patterns
+
+### Step 5.2: Write Report
+
 Use this template:
 
 ```markdown
@@ -77,6 +89,16 @@ Use this template:
 - Daily notes: {count}/7
 - Tasks completed: {count}
 - Tasks carried forward: {count}
+
+## Trends
+{Only include this section if previous week's review exists}
+| Metric | Last Week | This Week | Change |
+|--------|-----------|-----------|--------|
+| Daily notes | {n}/7 | {n}/7 | {+/-n} |
+| Tasks completed | {n} | {n} | {+/-n} |
+| Tasks carried | {n} | {n} | {+/-n} |
+
+{Brief narrative: e.g. "任务完成量提升，但遗留项也增加，注意负荷管理"}
 
 ## Carry Forward
 - [ ] {unfinished item}
