@@ -1,74 +1,51 @@
-# /obos save
+# /obos save [type] [--deep]
 
-Save conversation insights to the vault.
+Save conversation insights to the vault. Fast by default; `--deep` triggers Socratic guidance.
 
 ## Usage
 
 ```
-/obos save [type]
+/obos save [type] [--deep]
 ```
 
-Types:
-- `evergreen` - Create/update an Evergreen Note in `Notes/`
-- `daily` - Append to today's Daily Note
-- `clip` - Save as a Clipping
+**Two independent dimensions**:
 
-If type is omitted, AI auto-detects based on content.
+- **Type** (where to save): `evergreen`, `daily`, `clip`, `meeting`
+- **Maturity** (processing depth): `draft` (default), `refined` (via `--deep`)
 
-## Behavior
+## Step 1: Identify Vault Path
 
-### Step 1: Identify Vault Path
+Use Vault Path Discovery from SKILL.md.
 
-Check these locations in order:
-1. Current working directory (if has CLAUDE.md)
-2. `/Users/hansonmei/OneDrive/obsidian-vault/`
-3. Ask user
-
-### Step 2: Extract Insight from Conversation
+## Step 2: Extract Insight
 
 Analyze the current conversation to identify:
 - Key insight or conclusion
 - Supporting context
-- Related topics/links
+- Related topics for `[[wikilinks]]`
 
-### Step 3: Determine Type (if not specified)
+## Step 3: Determine Type
 
-Auto-detect rules:
-- **evergreen**: Standalone concept, reusable idea, principle
-- **daily**: Task update, fleeting thought, log entry
-- **clip**: External content, quote, reference material
+If user specified a type, use it. Otherwise auto-detect:
 
-### Step 4: Generate Content
+| Type | Signal | Path |
+|------|--------|------|
+| `evergreen` | Standalone concept, reusable idea, principle | `Notes/{title}.md` |
+| `daily` | Task update, fleeting thought, log entry | Append to `Daily/{YYYY-MM-DD}.md` |
+| `clip` | External content, quote, reference material | `Clippings/{title}.md` |
+| `meeting` | Meeting notes, discussion summary | `Daily/{YYYY-MM-DD}-{meeting-title}.md` |
 
-#### For Evergreen Notes
+## Step 4: Generate Content
+
+### Evergreen Notes
+
+Use Evergreen Note Template from SKILL.md. Set frontmatter `status:` per Knowledge Maturity Model from SKILL.md.
 
 Path: `Notes/{title}.md`
 
-```markdown
-# {Title}
+### Daily Notes
 
-{One-paragraph summary}
-
-## Details
-
-{Expanded content}
-
-## Source
-
-- Conversation: {date}
-- Context: {brief context}
-
-## Related
-
-- [[related note 1]]
-- [[related note 2]]
-```
-
-#### For Daily Notes
-
-Path: `Daily/{YYYY-MM-DD}.md`
-
-Append to existing or create new:
+Append to `Daily/{YYYY-MM-DD}.md` (create if missing):
 
 ```markdown
 ## {HH:MM} - {brief title}
@@ -76,15 +53,19 @@ Append to existing or create new:
 {content}
 ```
 
-#### For Clippings
+No frontmatter needed for appended entries.
+
+### Clippings
 
 Path: `Clippings/{title}.md`
 
 ```markdown
-# {Title}
-
-Source: {url or "AI conversation"}
-Date: {YYYY-MM-DD}
+---
+status: draft
+source: {url or "AI conversation"}
+created: {YYYY-MM-DD}
+---
+# {title}
 
 ## Content
 
@@ -92,24 +73,76 @@ Date: {YYYY-MM-DD}
 
 ## Notes
 
-{user's annotations}
+{user annotations if any}
 ```
 
-### Step 5: Confirm with User
+### Meeting Notes
 
-Before writing, show:
-- Type: {type}
-- Path: {file path}
-- Preview: {first 200 chars}
+Path: `Daily/{YYYY-MM-DD}-{meeting-title}.md`
 
-Ask: "Save this? (y/n/edit)"
+```markdown
+---
+status: draft
+source: meeting
+created: {YYYY-MM-DD}
+---
+# {meeting title}
 
-### Step 6: Write File
+## Attendees
 
-Use Write tool to create/append the file.
+-
 
-## Success Message
+## Key Points
 
-- Saved to: {path}
-- Type: {type}
-- Tip: Run `/obos sync` to update Index.md
+{discussion points}
+
+## Action Items
+
+- [ ]
+
+## Related
+
+- [[]]
+```
+
+## Step 5: Choose Path (Default vs --deep)
+
+### Default Path (no flags)
+
+**Short content optimization**: If the extracted insight is brief (< 5 lines), skip confirmation and write directly (zero-confirm save). This merges the original `quick` command behavior.
+
+For longer content:
+1. Show preview (type, path, first 200 chars)
+2. Ask user to confirm
+3. Write file with frontmatter `status: draft`
+
+### --deep Path (Socratic Guidance)
+
+When `--deep` is specified:
+
+1. Show preview of extracted insight
+2. Guide the user through two prompts (conversational, not AskUserQuestion):
+   - **Restate**: "Can you restate the core idea in your own words?"
+   - **Relate**: "How does this connect to what you already know?"
+3. Incorporate user's responses into the note content
+4. Write file with frontmatter `status: refined`
+
+The `--deep` path produces richer notes by engaging the user's own thinking. The maturity is recorded as `refined` in frontmatter to reflect this deeper processing.
+
+## Step 6: Write File
+
+Use the Write tool (or append for daily type) to save the file.
+
+## Step 7: Post-Save
+
+After writing:
+
+1. Confirm: "Saved to: {path} (status: {draft|refined})"
+2. Scan vault for potentially related existing notes (by title keywords, tags, or links)
+3. If related notes found, suggest them:
+   ```
+   Possibly related:
+   - [[Related Note A]]
+   - [[Related Note B]]
+   ```
+4. Tip: "Run `/obos sync` to update Index.md"
