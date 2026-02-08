@@ -3,7 +3,7 @@
 # Usage: ./tests/run.sh [command_name]
 # Validates skill command files: structure, templates, consistency
 
-set -euo pipefail
+set -eo pipefail
 
 SKILL_DIR="$(cd "$(dirname "$0")/../skill" && pwd)"
 TEST_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -19,21 +19,28 @@ yellow(){ printf "\033[33m%s\033[0m\n" "$1"; }
 assert_file_exists() {
   if [[ -f "$1" ]]; then
     green "  ✓ $2"
-    ((PASS++))
+    PASS=$((PASS+1))
   else
     red "  ✗ $2 (file not found: $1)"
-    ((FAIL++))
+    FAIL=$((FAIL+1))
   fi
 }
 
 assert_contains() {
-  local file="$1" pattern="$2" desc="$3"
-  if grep -q "$pattern" "$file" 2>/dev/null; then
+  # Usage: assert_contains file pattern desc
+  #    or: assert_contains file grep_flags pattern desc
+  local file="$1"; shift
+  local grep_flags=()
+  while [[ "$1" == -* && $# -gt 2 ]]; do
+    grep_flags+=("$1"); shift
+  done
+  local pattern="$1" desc="$2"
+  if grep -q ${grep_flags[@]+"${grep_flags[@]}"} -- "$pattern" "$file" 2>/dev/null; then
     green "  ✓ $desc"
-    ((PASS++))
+    PASS=$((PASS+1))
   else
     red "  ✗ $desc (pattern not found: $pattern)"
-    ((FAIL++))
+    FAIL=$((FAIL+1))
   fi
 }
 
@@ -41,10 +48,10 @@ assert_not_contains() {
   local file="$1" pattern="$2" desc="$3"
   if ! grep -q "$pattern" "$file" 2>/dev/null; then
     green "  ✓ $desc"
-    ((PASS++))
+    PASS=$((PASS+1))
   else
     red "  ✗ $desc (should not contain: $pattern)"
-    ((FAIL++))
+    FAIL=$((FAIL+1))
   fi
 }
 
@@ -54,10 +61,10 @@ assert_line_count() {
   count=$(wc -l < "$file" | tr -d ' ')
   if [[ "$count" -le "$max" ]]; then
     green "  ✓ $desc ($count lines ≤ $max)"
-    ((PASS++))
+    PASS=$((PASS+1))
   else
     red "  ✗ $desc ($count lines > $max)"
-    ((FAIL++))
+    FAIL=$((FAIL+1))
   fi
 }
 
