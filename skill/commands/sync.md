@@ -1,87 +1,130 @@
 # /obos sync
 
-Sync AI index files (Index.md and CLAUDE.md).
+Scan vault, update index files, and output a health report.
 
 ## Usage
 
 ```
-/obos sync
+/obos sync            # full sync: update Index.md + CLAUDE.md + health report
+/obos sync --status   # read-only dashboard only, no file modifications
 ```
 
-## Behavior
+## Vault Path Discovery
 
-### Step 1: Identify Vault Path
+Use Vault Path Discovery from SKILL.md to determine the vault root path.
 
-Check these locations in order:
-1. Current working directory (if has CLAUDE.md)
-2. `/Users/hansonmei/OneDrive/obsidian-vault/`
-3. Ask user
+## Mode Detection
 
-### Step 2: Scan Vault
+`--status` flag → **Status Mode** (read-only, skip to Step 4).
+No flag → **Default Mode** (full sync).
 
-Collect information from:
-- `Notes/` - Evergreen notes
-- `Daily/` - Daily notes and weekly reviews
-- `Clippings/` - Web clippings
-- `References/` - Reference materials
-- `Categories/` - MOC pages
+---
 
-For each file, extract:
-- Title (from filename or H1)
-- First paragraph (summary)
-- Tags and links
+## Step 1: Scan Vault
+
+Scan directories defined in SKILL.md Vault Structure (`Notes/`, `Daily/`, `Clippings/`, `References/`, `Categories/`).
+
+For each markdown file, extract:
+- Title (filename or first H1)
+- First meaningful line (skip frontmatter/heading, truncate 60 chars)
+- Frontmatter `status` field (draft/refined)
+- Wikilinks (`[[...]]` references)
 - Modified date
 
-### Step 3: Update Index.md
+**Performance guard**: Vault >500 files → scan only last 90 days for Recent Notes. Categories and statistics always cover full vault.
 
-Generate updated `Index.md`:
+## Step 2: Update Index.md
+
+Write `Index.md` at vault root:
 
 ```markdown
 # Index
-
-AI-readable index of vault contents.
 Last synced: {YYYY-MM-DD HH:MM}
 
 ## Recent Notes
-
-| Note | Summary | Updated |
-|------|---------|---------|
-| [[note1]] | First line... | 2026-01-27 |
-| [[note2]] | First line... | 2026-01-26 |
-(top 20 by modified date)
+| Note | Summary | Status | Updated |
+|------|---------|--------|---------|
+| [[note]] | First line... | draft | 2026-01-27 |
+(top 50 by modified date)
 
 ## Categories
-
-- [[Category/Topic1]] - {count} notes
-- [[Category/Topic2]] - {count} notes
+- [[Category/Topic]] - {count} notes
 
 ## Statistics
-
-- Evergreen notes: {count}
+- Evergreen notes: {count} (draft: {n}, refined: {n})
 - Daily notes: {count}
 - Clippings: {count}
-- References: {count}
 ```
 
-### Step 4: Update CLAUDE.md Context
+- Sort Recent Notes by modified date descending, limit **50**.
+- Status column: frontmatter `status` value, or `-` if absent.
+- Categories: each MOC page with count of notes linking to it.
 
-Append/update the "Current Context" section in CLAUDE.md:
+## Step 3: Update CLAUDE.md
+
+**Boundary protection**: ONLY modify the `## Current Context` section. All other sections MUST NOT be touched.
+
+1. Read existing CLAUDE.md.
+2. Locate `## Current Context` (from heading to next `## ` or EOF).
+3. Replace (or append if absent) with:
 
 ```markdown
 ## Current Context
-
 Last synced: {date}
 
 ### Recent Activity
 - {recent note 1}
 - {recent note 2}
+(up to 5 most recently modified notes)
 
 ### Active Topics
 - {topic with most recent notes}
+(up to 3 topics from Categories with most recent activity)
 ```
 
-## Success Message
+4. Write back, preserving all other sections exactly.
 
-- Index.md updated: {note count} notes indexed
-- CLAUDE.md context refreshed
-- Tip: AI can now reference your recent notes
+## Step 4: Health Report
+
+Output in both default and `--status` modes.
+
+### Orphan Notes
+
+Notes with **no incoming links** (exclude Index.md, CLAUDE.md, templates). List up to 10:
+```
+Orphan notes (no incoming links): {count}
+- Notes/example.md
+```
+
+### Broken Links
+
+Wikilinks pointing to **non-existent files**. List up to 10:
+```
+Broken links: {count}
+- [[missing-note]] in Notes/source.md
+```
+
+### Maturity Distribution
+
+```
+Maturity: {n} draft, {n} refined, {n} untagged
+```
+
+### Summary Dashboard
+
+```
+Vault Health Dashboard
+──────────────────────
+Total notes: {count}
+  Evergreen: {n} | Daily: {n} | Clippings: {n}
+Orphan notes: {n}
+Broken links: {n}
+Maturity: {n} draft, {n} refined, {n} untagged
+Last synced: {timestamp}
+```
+
+## Output
+
+**Default mode**: Index.md updated + CLAUDE.md Current Context refreshed + health report.
+
+**`--status` mode**: Read-only scan + health report only.
