@@ -1,0 +1,12 @@
+#!/bin/bash
+echo "Testing tidy command..."
+CMD="$SKILL_DIR/commands/tidy.md"
+assert_file_exists "$CMD" "tidy.md exists"
+assert_contains "$CMD" "Inbox" "scans Inbox directory"
+assert_contains "$CMD" -- "--dry-run" "supports --dry-run flag"
+assert_contains "$CMD" -- "--to" "supports --to flag"
+assert_contains "$CMD" "AskUserQuestion" "uses AskUserQuestion for confirmation"
+assert_contains "$CMD" "Notes/" "classifies to Notes"
+assert_contains "$CMD" "Clippings/" "classifies to Clippings"
+assert_contains "$CMD" "References/" "classifies to References"
+assert_contains "$CMD" "sync" "triggers sync after tidy"

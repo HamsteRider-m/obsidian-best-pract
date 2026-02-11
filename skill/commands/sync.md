@@ -1,74 +1,68 @@
 # /obos sync
 
-Scan vault, update index files, and output a health report.
+扫描 vault，更新索引文件，输出健康报告，并为孤岛笔记建议链接。
 
 ## Usage
 
 ```
-/obos sync            # full sync: update Index.md + CLAUDE.md + health report
-/obos sync --status   # read-only dashboard only, no file modifications
+/obos sync                # 全量同步：更新 Index.md + CLAUDE.md + 健康报告 + 链接建议
+/obos sync --status       # 只读模式：仅输出健康报告
+/obos sync --to work      # 同步指定 vault
 ```
 
-## Vault Path Discovery
+## Step 1: 确定目标 Vault
 
-Use Vault Path Discovery from SKILL.md to determine the vault root path.
+使用 SKILL.md 中的 Vault Path Discovery 逻辑。
 
-## Mode Detection
+## Step 2: 扫描 Vault
 
-`--status` flag → **Status Mode** (read-only, skip to Step 4).
-No flag → **Default Mode** (full sync).
+扫描标准目录（`Inbox/`、`Notes/`、`Clippings/`、`References/`、`Categories/`）中的所有 .md 文件。
 
----
+对每个文件提取：
+- 标题（文件名或第一个 H1）
+- 首行摘要（跳过 frontmatter/标题，截取 60 字符）
+- frontmatter `status` 字段（inbox/draft/refined）
+- 所有 `[[wikilink]]` 引用（出链和目标）
+- 修改日期
 
-## Step 1: Scan Vault
+**构建链接图**：内存中建立 `笔记 → [出链]` 和 `笔记 → [入链]` 的映射。
 
-Scan directories defined in SKILL.md Vault Structure (`Notes/`, `Daily/`, `Clippings/`, `References/`, `Categories/`).
+**性能保护**：vault 超过 500 个文件时，Recent Notes 只扫描最近 90 天。Categories 和统计始终覆盖全量。
 
-For each markdown file, extract:
-- Title (filename or first H1)
-- First meaningful line (skip frontmatter/heading, truncate 60 chars)
-- Frontmatter `status` field (draft/refined)
-- Wikilinks (`[[...]]` references) — both outgoing links and targets
-- Modified date
+## Step 3: 更新 Index.md
 
-**Build link graph**: Construct an in-memory map of `note → [outgoing links]` and `note → [incoming links]`. This graph powers orphan detection (Step 4) and broken link detection (Step 4).
+`--status` 模式跳过此步。
 
-**Performance guard**: Vault >500 files → scan only last 90 days for Recent Notes. Categories and statistics always cover full vault.
-
-## Step 2: Update Index.md
-
-Write `Index.md` at vault root:
+写入 vault 根目录的 `Index.md`：
 
 ```markdown
 # Index
 Last synced: {YYYY-MM-DD HH:MM}
 
 ## Recent Notes
-| Note | Summary | Status | Updated |
-|------|---------|--------|---------|
-| [[note]] | First line... | draft | 2026-01-27 |
+| Note | Summary | Status | Dir | Updated |
+|------|---------|--------|-----|---------|
+| [[note]] | First line... | draft | Notes | 2026-01-27 |
 (top 50 by modified date)
 
 ## Categories
 - [[Category/Topic]] - {count} notes
 
 ## Statistics
-- Evergreen notes: {count} (draft: {n}, refined: {n})
-- Daily notes: {count}
-- Clippings: {count}
+- Total notes: {count}
+- Inbox: {n} | Notes: {n} | Clippings: {n} | References: {n}
+- Maturity: {n} inbox, {n} draft, {n} refined
 ```
 
-- Sort Recent Notes by modified date descending, limit **50**.
-- Status column: frontmatter `status` value, or `-` if absent.
-- Categories: each MOC page with count of notes linking to it.
+## Step 4: 更新 CLAUDE.md
 
-## Step 3: Update CLAUDE.md
+`--status` 模式跳过此步。
 
-**Boundary protection**: ONLY modify the `## Current Context` section. All other sections MUST NOT be touched.
+**边界保护**：只修改 `## Current Context` 段落，其他段落原样保留。
 
-1. Read existing CLAUDE.md.
-2. Locate `## Current Context` (from heading to next `## ` or EOF).
-3. Replace (or append if absent) with:
+1. 读取 CLAUDE.md
+2. 定位 `## Current Context`（从标题到下一个 `## ` 或 EOF）
+3. 替换（或追加）为：
 
 ```markdown
 ## Current Context
@@ -84,55 +78,56 @@ Last synced: {date}
 (up to 3 topics from Categories with most recent activity)
 ```
 
-4. Write back, preserving all other sections exactly.
+## Step 5: 健康报告
 
-## Step 4: Health Report
+在所有模式下输出。
 
-Output in both default and `--status` modes.
+### 孤岛笔记
 
-### Orphan Notes
+无入链的笔记（排除 Index.md、CLAUDE.md、Templates/、Inbox/ 中的文件）。
 
-Notes with **no incoming links** from the link graph (exclude Index.md, CLAUDE.md, templates, daily notes). List up to 10:
-```
-Orphan notes (no incoming links): {count}
-- Notes/example.md
-- Notes/another.md
-```
+### 断链
 
-If orphan count > 0, suggest: `运行 /obos link --all 来为孤岛笔记建立连接`
+指向不存在文件的 `[[wikilink]]`。
 
-### Broken Links
+### 成熟度分布
 
-Wikilinks pointing to **non-existent files** from the link graph. List up to 10:
-```
-Broken links: {count}
-- [[missing-note]] referenced in Notes/source.md
-- [[old-note]] referenced in Notes/other.md
-```
+各 status 的笔记数量。
 
-If broken count > 0, suggest: `检查上述断链，可能是笔记被重命名或删除`
-
-### Maturity Distribution
+输出格式：
 
 ```
-Maturity: {n} draft, {n} refined, {n} untagged
-```
-
-### Summary Dashboard
-
-```
-Vault Health Dashboard
-──────────────────────
-Total notes: {count}
-  Evergreen: {n} | Daily: {n} | Clippings: {n}
-Orphan notes: {n}
-Broken links: {n}
-Maturity: {n} draft, {n} refined, {n} untagged
+Vault 健康报告
+──────────────
+总笔记: {count}
+  Inbox: {n} | Notes: {n} | Clippings: {n} | References: {n}
+成熟度: {n} inbox, {n} draft, {n} refined
+孤岛笔记: {n}
+断链: {n}
 Last synced: {timestamp}
 ```
 
-## Output
+## Step 6: 链接建议（新增，合并原 link 功能）
 
-**Default mode**: Index.md updated + CLAUDE.md Current Context refreshed + health report.
+`--status` 模式跳过此步。
 
-**`--status` mode**: Read-only scan + health report only.
+对每个孤岛笔记（最多处理 10 个，按修改时间倒序）：
+
+1. 读取笔记内容，提取主题和关键词
+2. 在 Index.md + vault 中搜索内容相关的笔记
+3. 按相关度排序，建议 2-3 个链接
+
+输出格式：
+
+```
+链接建议（{n} 篇孤岛笔记）：
+- Notes/函数式编程.md
+  → [[编程范式]], [[Haskell学习笔记]]
+- Notes/GTD方法论.md
+  → [[生产力工具]], [[时间管理]]
+```
+
+如果有建议，用 AskUserQuestion 询问：
+- "应用所有建议" — 批量添加到各笔记的 `## Related` 段落
+- "逐条选择" — 逐个笔记确认
+- "跳过" — 不添加链接

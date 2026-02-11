@@ -1,148 +1,85 @@
-# /obos save [type] [--deep]
+# /obos save
 
-Save conversation insights to the vault. Fast by default; `--deep` triggers Socratic guidance.
+核心命令。快速收集想法到 vault 的 Inbox 目录。
 
 ## Usage
 
 ```
-/obos save [type] [--deep]
+/obos save "想法或内容"        # 直接存入默认 vault
+/obos save "内容" --to work    # 存入指定 vault
+/obos save                     # 从当前对话上下文自动提取
 ```
 
-**Two independent dimensions**:
+## Step 1: 确定目标 Vault
 
-- **Type** (where to save): `evergreen`, `daily`, `clip`, `meeting`
-- **Maturity** (processing depth): `draft` (default), `refined` (via `--deep`)
+按优先级：
+1. `--to <alias>` 参数指定
+2. obos-config.json 中的 default vault
+3. 如果无配置，用 AskUserQuestion 引导注册（参考 vault.md）
 
-## Step 1: Identify Vault Path
+确定后更新 `lastUsedVault`。
 
-Use Vault Path Discovery from SKILL.md.
+## Step 2: 提取内容
 
-## Step 2: Extract Insight
+**有参数**：使用用户传入的文本作为原始内容。
 
-Analyze the current conversation to identify:
-- Key insight or conclusion
-- Supporting context
-- Related topics for `[[wikilinks]]`
+**无参数**：分析当前对话上下文，提取：
+- 关键结论或洞见
+- 决策和理由
+- 值得记录的想法
 
-## Step 3: Determine Type
+如果对话中没有明显可提取的内容，用 AskUserQuestion 询问："你想保存什么？"
 
-If user specified a type, use it. Otherwise auto-detect:
+## Step 3: 生成笔记
 
-| Type | Signal | Path |
-|------|--------|------|
-| `evergreen` | Standalone concept, reusable idea, principle | `Notes/{title}.md` |
-| `daily` | Task update, fleeting thought, log entry | Append to `Daily/{YYYY-MM-DD}.md` |
-| `clip` | External content, quote, reference material | `Clippings/{title}.md` |
-| `meeting` | Meeting notes, discussion summary | `Daily/{YYYY-MM-DD}-{meeting-title}.md` |
+AI 自动处理：
+1. **生成标题**：从内容中提炼简洁的名词短语标题（中文或英文，跟随内容语言）
+2. **生成摘要**：一句话概括核心内容
+3. **识别关键词**：提取 2-3 个关键词，用于后续 tidy 分类参考
 
-## Step 4: Generate Content
-
-### Evergreen Notes
-
-Use Evergreen Note Template from SKILL.md. Set frontmatter `status:` per Knowledge Maturity Model from SKILL.md.
-
-Path: `Notes/{title}.md`
-
-### Daily Notes
-
-Append to `Daily/{YYYY-MM-DD}.md` (create if missing):
-
-```markdown
-## {HH:MM} - {brief title}
-
-{content}
-```
-
-No frontmatter needed for appended entries.
-
-### Clippings
-
-Path: `Clippings/{title}.md`
+生成文件内容：
 
 ```markdown
 ---
-status: draft
-source: {url or "AI conversation"}
+status: inbox
+source: "AI conversation"
 created: {YYYY-MM-DD}
+keywords: [关键词1, 关键词2]
 ---
 # {title}
 
-## Content
+{整理后的内容}
 
-{clipped content}
+## 原始上下文
 
-## Notes
-
-{user annotations if any}
+{如果是从对话提取的，保留关键上下文片段，方便日后回溯}
 ```
 
-### Meeting Notes
+文件路径：`Inbox/{YYYY-MM-DD}-{title}.md`
 
-Path: `Daily/{YYYY-MM-DD}-{meeting-title}.md`
+标题中的特殊字符（`/\:*?"<>|`）替换为 `-`。
 
-```markdown
----
-status: draft
-source: meeting
-created: {YYYY-MM-DD}
----
-# {meeting title}
+## Step 4: 写入文件
 
-## Attendees
+**短内容（< 5 行）**：零确认直接写入。
 
--
-
-## Key Points
-
-{discussion points}
-
-## Action Items
-
-- [ ]
-
-## Related
-
-- [[]]
+**长内容（>= 5 行）**：展示预览后写入：
+```
+预览：
+  标题: {title}
+  路径: Inbox/{filename}
+  摘要: {summary}
+  ---
+  {前 200 字}...
 ```
 
-## Step 5: Choose Path (Default vs --deep)
+使用 Write 工具写入文件。
 
-### Default Path (no flags)
+## Step 5: 确认输出
 
-**Short content optimization**: If the extracted insight is brief (< 5 lines), skip confirmation and write directly (zero-confirm save). This merges the original `quick` command behavior.
+```
+✅ 已保存到: {vault_alias} → Inbox/{filename}
+   摘要: {summary}
 
-For longer content:
-1. Show preview (type, path, first 200 chars)
-2. Ask user to confirm
-3. Write file with frontmatter `status: draft`
-
-### --deep Path (Socratic Guidance)
-
-When `--deep` is specified:
-
-1. Show preview of extracted insight
-2. Guide the user through two prompts (conversational, not AskUserQuestion):
-   - **Restate**: "Can you restate the core idea in your own words?"
-   - **Relate**: "How does this connect to what you already know?"
-3. Incorporate user's responses into the note content
-4. Write file with frontmatter `status: refined`
-
-The `--deep` path produces richer notes by engaging the user's own thinking. The maturity is recorded as `refined` in frontmatter to reflect this deeper processing.
-
-## Step 6: Write File
-
-Use the Write tool (or append for daily type) to save the file.
-
-## Step 7: Post-Save
-
-After writing:
-
-1. Confirm: "Saved to: {path} (status: {draft|refined})"
-2. Scan vault for potentially related existing notes (by title keywords, tags, or links)
-3. If related notes found, suggest them:
-   ```
-   Possibly related:
-   - [[Related Note A]]
-   - [[Related Note B]]
-   ```
-4. Tip: "Run `/obos sync` to update Index.md"
+💡 运行 /obos tidy 将 Inbox 中的笔记整理到正确目录
+```
