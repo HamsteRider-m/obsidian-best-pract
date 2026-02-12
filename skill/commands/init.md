@@ -1,75 +1,58 @@
 # /obos init
 
-Initialize an Obsidian vault with AI-friendly structure. Supports both fresh vaults and existing vaults with idempotent execution.
+初始化 Obsidian vault 结构并注册到多 vault 配置。幂等执行，重复运行不会覆盖已有内容。
 
-## Behavior Overview
-
-1. Detect vault path (Vault Path Discovery from SKILL.md)
-2. Scan existing structure and detect known directory patterns
-3. Create missing directories (idempotent — skip existing ones)
-4. Generate CLAUDE.md and Index.md (never overwrite existing)
-5. Interactive onboarding via AskUserQuestion
-6. Output checklist format result
-
-## Standard Directory Structure
+## Usage
 
 ```
-Daily/          # Daily notes (YYYY-MM-DD.md) and weekly reviews
-Notes/          # Evergreen notes (atomic, linked ideas)
-Clippings/      # Web clippings and highlights
-References/     # Source materials (books, articles)
-Categories/     # MOC (Map of Content) index pages
+/obos init              # 初始化当前目录或默认 vault
+/obos init <path>       # 初始化指定路径
+```
+
+## Step 1: 确定 Vault 路径
+
+优先级：
+1. 命令参数指定的 `<path>`
+2. 当前工作目录（如果包含 `.obsidian/`）
+3. 用 AskUserQuestion 询问用户 vault 路径
+
+## Step 2: 扫描现有结构
+
+扫描 vault 目录，检测已有目录模式：
+
+| 已有目录 | 建议映射 | 说明 |
+|----------|----------|------|
+| `Journal/`, `Diary/`, `日记/` | `Inbox/` 或保留 | 建议作为历史内容保留 |
+| `Inbox/`, `Fleeting/` | `Inbox/` | 直接复用 |
+| `Assets/`, `Images/`, `Media/` | `Attachments/` | 建议重命名 |
+| `Sources/`, `Literature/` | `References/` | 建议重命名 |
+| `MOC/`, `Maps/`, `Index/` | `Categories/` | 建议重命名 |
+
+如果检测到已有目录，用 AskUserQuestion 询问：
+- "重命名为标准名称"
+- "保留现有名称"
+- "跳过"
+
+**插件冲突检测**：检查 `.obsidian/plugins/` 是否有 Daily Notes 或 Periodic Notes 插件，如有则提示用户注意。
+
+## Step 3: 创建目录（幂等）
+
+标准目录列表（已存在则跳过）：
+```
+Inbox/          # 收集入口
+Notes/          # Evergreen notes
+Clippings/      # Web clippings
+References/     # Source materials
 Attachments/    # Images and files
+Categories/     # MOC index pages
 Templates/      # Note templates
 ```
 
-## Implementation
+## Step 4: 生成 CLAUDE.md
 
-### Step 1: Determine Vault Path
+**已存在 → 跳过，不覆盖。**
 
-Use **Vault Path Discovery from SKILL.md** to locate the vault root. Do not duplicate the discovery logic here.
-
-### Step 2: Scan Existing Structure
-
-Before creating anything, scan the vault directory for existing content.
-
-**Detect known directory patterns** and suggest mapping to standard structure:
-
-| Existing Directory | Suggested Mapping | Action |
-|---|---|---|
-| `Journal/`, `Diary/`, `日记/` | `Daily/` | Suggest rename or symlink |
-| `Inbox/`, `Fleeting/` | `Notes/` | Suggest as capture → Notes pipeline |
-| `Assets/`, `Images/`, `Media/` | `Attachments/` | Suggest rename or symlink |
-| `Sources/`, `Literature/` | `References/` | Suggest rename or symlink |
-| `MOC/`, `Maps/`, `Index/` | `Categories/` | Suggest rename or symlink |
-
-If existing directories are detected, present the mapping suggestions to the user and ask whether to:
-- (a) Rename directories to standard names
-- (b) Keep existing names and create symlinks
-- (c) Skip — keep current structure as-is
-
-**Plugin conflict detection**: Check `.obsidian/plugins/` for Daily Notes or Periodic Notes plugin configs. If found, warn the user about potential conflicts with `Daily/` directory management and suggest reviewing plugin settings.
-
-### Step 3: Create Directories (Idempotent)
-
-For each directory in the standard structure:
-- If it already exists → skip (log as "already exists")
-- If it does not exist → create it
-
-```bash
-# Only create directories that don't exist
-for dir in Daily Notes Clippings References Attachments Categories Templates; do
-  [ -d "$dir" ] || mkdir -p "$dir"
-done
-```
-
-This ensures repeat execution is safe — running `/obos init` multiple times never destroys existing content.
-
-### Step 4: Generate CLAUDE.md
-
-**If CLAUDE.md already exists**: Do NOT overwrite. Log as "already exists, skipping" and proceed to Step 5.
-
-**If CLAUDE.md does not exist**: Create with this template:
+不存在则创建：
 
 ```markdown
 # CLAUDE.md
@@ -82,7 +65,7 @@ This file teaches AI assistants about this knowledge vault.
 
 ## Structure
 
-- `Daily/` - Daily notes (YYYY-MM-DD.md) and weekly reviews
+- `Inbox/` - 收集入口，未整理的想法和笔记
 - `Notes/` - Evergreen notes (atomic, linked ideas)
 - `Clippings/` - Web clippings and highlights
 - `References/` - Source materials (books, articles)
@@ -104,31 +87,29 @@ This file teaches AI assistants about this knowledge vault.
 {{ACTIVE_PROJECTS}}
 ```
 
-Placeholders (`{{...}}`) are filled via the interactive onboarding in Step 5.
+## Step 5: 交互式引导（AskUserQuestion）
 
-### Step 5: Interactive Onboarding (AskUserQuestion)
+填充 CLAUDE.md 占位符：
 
-Guide the user to fill in CLAUDE.md placeholders. Use AskUserQuestion for structured choices.
-
-**Question 1 — Vault Purpose**:
-> AskUserQuestion: "这个 vault 的主要用途是什么？"
+**Q1 — Vault 用途**：
+> "这个 vault 的主要用途是什么？"
 > Options: "个人知识管理", "工作项目笔记", "学习与研究", "写作与创作", "混合用途"
 
-**Question 2 — Focus Areas**:
-> AskUserQuestion: "你最关注的 2-3 个领域是什么？（用于 Key Topics）"
-> Options: Provide 2-3 examples based on vault purpose selection, plus "自定义输入"
+**Q2 — 关注领域**：
+> "你最关注的 2-3 个领域是什么？"
+> 根据 Q1 答案提供示例选项 + "自定义输入"
 
-**Question 3 — Active Projects** (optional):
-> AskUserQuestion: "当前有进行中的项目吗？"
-> Options: "有，我来填写", "暂时没有，之后再补"
+**Q3 — 活跃项目**（可选）：
+> "当前有进行中的项目吗？"
+> Options: "有，我来填写", "暂时没有"
 
-Fill the placeholders in CLAUDE.md with user responses.
+用回答替换 CLAUDE.md 中的占位符。
 
-### Step 6: Generate Index.md
+## Step 6: 生成 Index.md
 
-**If Index.md already exists**: Do NOT overwrite. Log as "already exists, skipping".
+**已存在 → 跳过。**
 
-**If Index.md does not exist**: Create with this template:
+不存在则创建：
 
 ```markdown
 # Index
@@ -149,56 +130,40 @@ AI-readable index of vault contents. Auto-generated by `/obos sync`.
 - Last synced: never
 ```
 
-### Step 7: Create Templates
+## Step 7: 创建模板
 
-Use **Evergreen Note Template from SKILL.md** for `Templates/Evergreen.md`.
+创建 `Templates/Evergreen.md`（如不存在），使用 SKILL.md 中的 Evergreen Note Template。
 
-Create `Templates/Daily.md` (if not exists):
+## Step 8: 注册 Vault
 
-```markdown
-# {{date}}
+读取 `obos-config.json`，如果当前 vault 未注册：
+1. 用 AskUserQuestion 询问别名："给这个 vault 起个别名（如 personal、work）"
+2. 写入配置文件
+3. 如果是第一个 vault，自动设为 default
 
-## Plan
-> 今天最重要的一件事是什么？
--
-
-## Log
--
-
-## Thoughts
-> 今天学到了什么？改变了什么看法？
-
-## Meetings
-```
-
-Skip any template file that already exists (idempotent).
-
-## Output Format
-
-Present results as a checklist:
+## Output
 
 ```
 ✅ Vault 初始化完成：[vault_path]
 
 目录：
-  [✓] Daily/          — 已创建 | 已存在
-  [✓] Notes/          — 已创建 | 已存在
-  [✓] Clippings/      — 已创建 | 已存在
-  [✓] References/     — 已创建 | 已存在
-  [✓] Attachments/    — 已创建 | 已存在
-  [✓] Categories/     — 已创建 | 已存在
-  [✓] Templates/      — 已创建 | 已存在
+  [✓] Inbox/         — 已创建 | 已存在
+  [✓] Notes/         — 已创建 | 已存在
+  [✓] Clippings/     — 已创建 | 已存在
+  [✓] References/    — 已创建 | 已存在
+  [✓] Attachments/   — 已创建 | 已存在
+  [✓] Categories/    — 已创建 | 已存在
+  [✓] Templates/     — 已创建 | 已存在
 
 文件：
-  [✓] CLAUDE.md       — 已生成 | 已存在（未覆盖）
-  [✓] Index.md        — 已生成 | 已存在（未覆盖）
-  [✓] Templates/Daily.md
+  [✓] CLAUDE.md      — 已生成 | 已存在（未覆盖）
+  [✓] Index.md       — 已生成 | 已存在（未覆盖）
   [✓] Templates/Evergreen.md
 
-⚠️ 提示：（如有 plugin 冲突或目录映射建议，在此列出）
+Vault 已注册为: <alias>
 
 下一步：
-  - 检查 CLAUDE.md 内容是否准确
-  - 运行 /obos daily 创建今日笔记
+  - 运行 /obos save 收集你的第一个想法
+  - 运行 /obos tidy 整理已有的散落文件
   - 运行 /obos sync 生成索引
 ```

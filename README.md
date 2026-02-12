@@ -1,18 +1,17 @@
 # obos — Obsidian Best Practices
 
-AI-powered Obsidian vault management skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+AI-powered Obsidian vault management skill. Opinionated system for reducing entropy in your knowledge vault.
 
-Manage daily notes, refine knowledge, discover connections, and write from your vault — all through `/obos` commands.
+Core loop: **收集 → 整理 → 连接 → 回顾**
 
 ## Quick Start
 
 ### Install
 
 ```bash
-# Clone to your projects directory
 git clone https://github.com/HamsteRider-m/obsidian-best-pract.git
 
-# Deploy skill files to Claude Code
+# Deploy skill files
 cp -r skill/SKILL.md ~/.claude/skills/obos/SKILL.md
 cp -r skill/commands/ ~/.claude/skills/obos/commands/
 ```
@@ -23,30 +22,28 @@ cp -r skill/commands/ ~/.claude/skills/obos/commands/
 /obos init
 ```
 
-This initializes your vault structure and walks you through onboarding.
+This initializes your vault structure, creates standard directories, and registers your vault.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/obos init` | Initialize vault structure + interactive onboarding |
-| `/obos daily [date]` | Create/open daily note with carry-forward |
-| `/obos save [type]` | Save conversation insight (`--deep` for guided) |
-| `/obos weekly [range]` | Generate weekly review (`--reflect` for reflection) |
-| `/obos sync` | Sync index + health report (`--status` for read-only) |
-| `/obos refine [note]` | Socratic note refinement (draft → refined) |
-| `/obos ask "question"` | Query your knowledge base |
-| `/obos link [note]` | Smart link suggestions (`--all` for vault-wide) |
-| `/obos draft "topic"` | Writing assist from notes (`--assist` for AI prose) |
+| `/obos save ["内容"]` | Quick capture to Inbox (core command) |
+| `/obos tidy` | Organize Inbox + stray files into correct directories |
+| `/obos sync` | Update index + health report + link suggestions |
+| `/obos review` | Vault status overview + next action suggestion |
+| `/obos init` | Initialize vault structure |
+| `/obos vault` | Manage multiple vault registrations |
+| `/obos refine [note]` | Socratic note refinement (advanced) |
+| `/obos ask "question"` | Query your knowledge base (advanced) |
+| `/obos draft "topic"` | Writing assist from notes (advanced) |
 
 Commands are grouped by purpose:
 
 ```
-记录：daily, save
-加工：refine, link
-产出：ask, draft
-维护：sync, weekly
-设置：init
+核心：save, tidy, sync, review
+设置：init, vault
+进阶：refine, ask, draft
 ```
 
 ## Vault Structure
@@ -55,7 +52,7 @@ Commands are grouped by purpose:
 Vault/
 ├── CLAUDE.md          # AI context file
 ├── Index.md           # AI-readable index (auto-generated)
-├── Daily/             # Daily notes + weekly reviews
+├── Inbox/             # Capture inbox (save writes here)
 ├── Notes/             # Evergreen notes
 ├── Clippings/         # Web clippings
 ├── References/        # Source materials
@@ -64,86 +61,59 @@ Vault/
 └── Templates/         # Note templates
 ```
 
+## Multi-Vault Support
+
+Register and switch between multiple vaults:
+
+```
+/obos vault add personal "D:/obsidian/personal"
+/obos vault add work "C:/Users/.../work-vault"
+/obos vault default personal
+```
+
+All commands support `--to <alias>` to target a specific vault.
+
 ## Knowledge Maturity Model
 
-Two-level system tracked in frontmatter `status` field:
+Three-level system tracked in frontmatter `status` field:
 
 | Status | Meaning | Set by |
 |--------|---------|--------|
-| `draft` | Captured but not deeply processed | `/obos save`, quick capture |
-| `refined` | Processed through guided reflection | `/obos save --deep`, `/obos refine` |
-
-## Design Principles
-
-1. **Fast by default, depth optional** — every command takes the quickest path; deep features are opt-in (`--deep`, `--reflect`, `--assist`)
-2. **AI asks questions, not gives answers** — Socratic guidance as optional enhancement, never forced
-3. **Simplicity first** — user-facing simplicity, complexity stays behind the scenes
-4. **Capture ≠ Learn** — the system provides processing paths but never forces users through them
+| `inbox` | Just captured, not yet organized | `/obos save` |
+| `draft` | Organized into correct directory | `/obos tidy` |
+| `refined` | Processed through guided reflection | `/obos refine` |
 
 ## Typical Workflows
 
-**Morning routine**:
+**Capture an idea anytime**:
 ```
-/obos sync          # update index, check vault health
-/obos daily         # create today's note, carry forward yesterday's tasks
-```
-
-**After a learning session**:
-```
-/obos save          # quick capture (draft)
-/obos save --deep   # guided capture with reflection (refined)
+/obos save "函数式编程的核心不是没有副作用，而是控制副作用的边界"
 ```
 
-**Knowledge processing**:
+**Organize accumulated notes**:
 ```
-/obos refine [[My Note]]   # Socratic refinement of a draft note
-/obos link [[My Note]]     # discover connections to other notes
-/obos link --all            # find and connect orphan notes
-```
-
-**Writing from your vault**:
-```
-/obos ask "What do I know about X?"    # query your knowledge base
-/obos draft "Topic"                     # generate outline from notes
-/obos draft "Topic" --assist            # AI-assisted prose generation
+/obos tidy              # AI classifies and moves Inbox files
+/obos sync              # update index, suggest links
 ```
 
-**Weekly review**:
+**Check vault health**:
 ```
-/obos weekly             # auto-generate review with stats + trends
-/obos weekly --reflect   # guided reflection with Socratic questions
+/obos review            # status overview + next action
 ```
 
-## Project Structure
-
+**Deep processing (advanced)**:
 ```
-obsidian-best-pract/
-├── skill/
-│   ├── SKILL.md              # Router + shared conventions (~90 lines)
-│   └── commands/             # Self-contained command implementations
-│       ├── init.md
-│       ├── daily.md
-│       ├── save.md
-│       ├── weekly.md
-│       ├── sync.md
-│       ├── refine.md
-│       ├── ask.md
-│       ├── link.md
-│       └── draft.md
-├── tests/
-│   ├── run.sh                # Test runner
-│   └── test_*.sh             # Per-command test suites
-└── docs/design/              # Design documents
+/obos refine [[My Note]]              # Socratic refinement
+/obos ask "What do I know about X?"   # query knowledge base
+/obos draft "Topic"                    # generate outline from notes
 ```
 
 ## Testing
 
 ```bash
-bash tests/run.sh          # run all tests
-bash tests/run.sh link     # run a specific command's tests
+bash tests/run.sh
+bash tests/run.sh save    # run a specific command's tests
 ```
-
-Tests validate command file structure, required sections, template consistency, and design doc compliance. Current status: **88 passed, 0 failed, 0 skipped**.
 
 ## License
 
