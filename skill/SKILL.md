@@ -14,7 +14,7 @@ metadata:
 | Command | Description |
 |---------|-------------|
 | `/obos save ["内容"]` | 快速收集想法到 Inbox（核心命令） |
-| `/obos tidy` | 整理 Inbox + 散落文件到正确目录 |
+| `/obos tidy` | 整理笔记归位（支持 standard/strong 模式） |
 | `/obos sync` | 更新索引 + 健康报告 + 链接建议 |
 | `/obos review` | Vault 状态回顾 + 下一步建议 |
 | `/obos init` | 初始化 vault 结构 |
@@ -29,6 +29,16 @@ No argument → show grouped command list:
 设置：init, vault
 进阶：refine, ask, draft
 ```
+
+## Tidy 默认策略
+
+`/obos tidy` 默认按 `standard` 模式运行，并启用幂等增量整理：
+
+- 重复执行时，已整理且未变更的文件会被跳过，不重复迁移
+- 自动重命名默认只执行一次；检测到手动改名后自动锁定（`name_locked: true`）
+- 项目目录默认 `project-policy=contain`：项目文档不打散到项目外
+- 通过 `/.obos/tidy-state.json` 与 frontmatter 双重判定稳定性
+- 通过 `/.obos/tidy-config.json` 可扩展项目目录白名单（`projectRootsExtra`）
 
 ## Multi-Vault 配置
 
