@@ -22,6 +22,7 @@
 - 标题（文件名或第一个 H1）
 - 首行摘要（跳过 frontmatter/标题，截取 60 字符）
 - frontmatter `status` 字段（inbox/draft/refined）
+- frontmatter `review_needed` 字段（true/false）
 - 所有 `[[wikilink]]` 引用（出链和目标）
 - 修改日期
 
@@ -94,6 +95,10 @@ Last synced: {date}
 
 各 status 的笔记数量。
 
+### 待复核笔记
+
+`review_needed: true` 的笔记数量与列表（最多显示 10 条）。
+
 输出格式：
 
 ```
@@ -102,6 +107,7 @@ Vault 健康报告
 总笔记: {count}
   Inbox: {n} | Notes: {n} | Clippings: {n} | References: {n}
 成熟度: {n} inbox, {n} draft, {n} refined
+待复核: {n}
 孤岛笔记: {n}
 断链: {n}
 Last synced: {timestamp}
