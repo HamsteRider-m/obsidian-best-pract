@@ -99,6 +99,14 @@ Last synced: {date}
 
 `review_needed: true` 的笔记数量与列表（最多显示 10 条）。
 
+### 目录审计摘要
+
+如果存在 `/.obos/dir-audit.json`，读取并输出目录动作摘要：
+- `KEEP` 数量
+- `REORGANIZE` 数量
+- `ARCHIVE_DIR` 数量
+- 最近一次目录评估时间
+
 输出格式：
 
 ```
@@ -108,6 +116,7 @@ Vault 健康报告
   Inbox: {n} | Notes: {n} | Clippings: {n} | References: {n}
 成熟度: {n} inbox, {n} draft, {n} refined
 待复核: {n}
+目录动作: {n} KEEP, {n} REORGANIZE, {n} ARCHIVE_DIR
 孤岛笔记: {n}
 断链: {n}
 Last synced: {timestamp}

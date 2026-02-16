@@ -36,9 +36,12 @@ No argument → show grouped command list:
 
 - 重复执行时，已整理且未变更的文件会被跳过，不重复迁移
 - 自动重命名默认只执行一次；检测到手动改名后自动锁定（`name_locked: true`）
-- 项目目录默认 `project-policy=contain`：项目文档不打散到项目外
+- 项目目录默认 `project-policy=contain`：项目结构冻结，不打散且不改内部层级/文件名
 - 通过 `/.obos/tidy-state.json` 与 frontmatter 双重判定稳定性
 - 通过 `/.obos/tidy-config.json` 可扩展项目目录白名单（`projectRootsExtra`）
+- strong 模式先进行目录必要性评估（KEEP / REORGANIZE / ARCHIVE_DIR）
+- 目录评估审计输出到 `/.obos/dir-audit.json`
+- 默认不删除 markdown 文档（`deleteMarkdown=false`），仅清理空目录
 
 ## Multi-Vault 配置
 
